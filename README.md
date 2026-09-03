@@ -1,36 +1,35 @@
 # Product Management REST API
 
-A REST API built with **Java 17** and **Spring Boot** to manage products and their items. This project was developed as part of the Java Backend Developer hiring assignment for **Zest India IT Pvt Ltd**.
+A Spring Boot REST API for managing products and their items. Built with Java 17, Spring Boot, MySQL, and Spring Security with JWT.
 
 ---
 
 ## Features
 
-- **Product CRUD:** Create, read, update, and delete products.
-- **Product Items:** Add, view, and delete items with quantities linked to a product.
-- **Pagination & Search:** Get products with pagination, sorting (`sortBy`, `sortDir`), and keyword search.
-- **Authentication & Security:** 
-  - JWT-based authentication (Access Token + Refresh Token).
-  - Refresh Token rotation (old token is revoked, new token is generated).
-  - Role-based authorization (`ROLE_ADMIN` can create/update/delete, `ROLE_USER` can read).
-- **Input Validation:** Validation using Jakarta annotations (`@NotBlank`, `@Min`, `@Size`, etc.).
-- **Async Processing:** Asynchronous audit logging when products are created, updated, or deleted.
-- **API Documentation:** Interactive Swagger UI documentation.
-- **Automated Tests:** Unit tests (Mockito) and integration tests with an in-memory H2 database.
-- **Docker Support:** Containerized setup using `Dockerfile` and `docker-compose.yml`.
+- **Product CRUD**: Endpoints to create, view, update, and delete products.
+- **Product Items**: Endpoints to add items to a product, view items by product ID, and delete items.
+- **Pagination and Sorting**: Product list supports pagination (`page`, `size`), sorting (`sortBy`, `sortDir`), and name search.
+- **Authentication with JWT**:
+  - User registration and login.
+  - Generates JWT access token and refresh token.
+  - Refresh token rotation (when refreshing, old refresh token is replaced by a new one).
+  - Role-based security: `ADMIN` can create, update, and delete; `USER` can only view.
+- **Validation**: Request data validation using Jakarta validation annotations (`@NotBlank`, `@Min`, `@Size`).
+- **Async Logging**: Asynchronous audit logging when products are created, updated, or deleted using `@Async`.
+- **API Documentation**: Swagger UI for viewing and testing endpoints.
+- **Unit and Integration Tests**: 14 automated tests using JUnit 5, Mockito, and in-memory H2 database.
+- **Docker Support**: Dockerfile and docker-compose file included.
 
 ---
 
 ## Tech Stack
 
-- **Java:** 17
-- **Framework:** Spring Boot 3.2.5
-- **Database:** MySQL 8 (H2 in-memory for testing)
-- **ORM:** Spring Data JPA / Hibernate
-- **Security:** Spring Security 6 & JJWT (0.11.5)
-- **Documentation:** Springdoc OpenAPI / Swagger UI
-- **Testing:** JUnit 5, Mockito, Spring Boot Test
-- **Build Tool:** Maven
+- Java 17
+- Spring Boot 3.2.5
+- Spring Data JPA (Hibernate)
+- MySQL 8 (H2 database used for running tests)
+- Spring Security & JJWT
+- Maven
 
 ---
 
@@ -38,114 +37,109 @@ A REST API built with **Java 17** and **Spring Boot** to manage products and the
 
 ```
 src/main/java/org/techhub/
-├── config/          # Security, Swagger, Async, and DataInitializer
-├── controller/      # Auth, Product, and Item REST controllers
-├── dto/             # Request and Response models
+├── config/          # SecurityConfig, OpenApiConfig, AsyncConfig, DataInitializer
+├── controller/      # AuthController, ProductController, ItemController
+├── dto/             # Request and Response DTOs
 ├── entity/          # Product, Item, User, RefreshToken, Role
-├── exception/       # Custom exceptions and GlobalExceptionHandler
+├── exception/       # ResourceNotFoundException, GlobalExceptionHandler
 ├── repository/      # Spring Data JPA repositories
-├── security/        # JWT utility, filter, and UserDetailsService
+├── security/        # JwtUtils, JwtAuthenticationFilter, UserDetailsServiceImpl
 └── service/         # Service interfaces and implementations
 ```
 
 ---
 
-## Database Tables
+## Database Design
 
-The database schema matches the assignment requirements:
-
-### 1. `product`
+### product
 - `id` (Primary Key, Auto-increment)
-- `product_name` (VARCHAR 255, Not Null)
-- `created_by` (VARCHAR 100, Not Null)
-- `created_on` (TIMESTAMP, Not Null)
+- `product_name` (VARCHAR 255, NOT NULL)
+- `created_by` (VARCHAR 100, NOT NULL)
+- `created_on` (TIMESTAMP, NOT NULL)
 - `modified_by` (VARCHAR 100)
 - `modified_on` (TIMESTAMP)
 
-### 2. `item`
+### item
 - `id` (Primary Key, Auto-increment)
-- `product_id` (Foreign Key referencing `product.id`)
-- `quantity` (INT, Not Null)
+- `product_id` (Foreign Key referencing product.id)
+- `quantity` (INT, NOT NULL)
 
-### 3. `users` & `refresh_token`
-- `users`: Stores user credentials (`username`, `email`, `password`, `role`).
-- `refresh_token`: Tracks refresh tokens, expiration time, and revocation status for token rotation.
+### users and refresh_token
+- `users`: Stores username, email, hashed password, and role (`ROLE_USER`, `ROLE_ADMIN`).
+- `refresh_token`: Stores refresh tokens linked to users for token rotation.
 
 ---
 
-## Default Login Credentials (For Testing)
+## Default Credentials (For Testing)
 
-The application automatically seeds two test users on startup if the database is empty:
+Two accounts are automatically created on application startup if the database is empty:
 
-| Role | Username | Password | Access Level |
+| Role | Username | Password | Permissions |
 | :--- | :--- | :--- | :--- |
-| **Admin** | `admin` | `admin123` | Can view, create, edit, and delete products & items |
-| **User** | `user` | `user123` | Can view products and items (read-only) |
+| Admin | `admin` | `admin123` | Can view, create, update, and delete products/items |
+| User | `user` | `user123` | Can only view products and items |
 
 ---
 
 ## API Endpoints
 
-All APIs use the `/api/v1/` prefix.
+All endpoints start with `/api/v1`.
 
-### Authentication (`/api/v1/auth`)
+### Authentication Endpoints (`/api/v1/auth`)
+
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | Public | Register a new user |
-| `POST` | `/api/v1/auth/login` | Public | Login to get Access Token and Refresh Token |
-| `POST` | `/api/v1/auth/refresh-token` | Public | Rotate refresh token and get a new access token |
-| `POST` | `/api/v1/auth/logout` | Authenticated | Revoke current refresh token |
+| POST | `/api/v1/auth/register` | Public | Register a new user |
+| POST | `/api/v1/auth/login` | Public | Login and get access token + refresh token |
+| POST | `/api/v1/auth/refresh-token` | Public | Refresh access token and rotate refresh token |
+| POST | `/api/v1/auth/logout` | Authenticated | Logout and revoke refresh token |
 
-### Products & Items (`/api/v1/products`)
+### Product Endpoints (`/api/v1/products`)
+
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/products` | USER, ADMIN | Get products with pagination & search |
-| `GET` | `/api/v1/products/{id}` | USER, ADMIN | Get single product by ID |
-| `POST` | `/api/v1/products` | ADMIN | Create a new product |
-| `PUT` | `/api/v1/products/{id}` | ADMIN | Update an existing product |
-| `DELETE` | `/api/v1/products/{id}` | ADMIN | Delete a product |
-| `GET` | `/api/v1/products/{id}/items` | USER, ADMIN | Get items for a product |
-| `POST` | `/api/v1/products/{id}/items` | ADMIN | Add item to a product |
-| `DELETE` | `/api/v1/products/{id}/items/{itemId}` | ADMIN | Delete an item from a product |
+| GET | `/api/v1/products` | USER, ADMIN | Get products with pagination, sorting, and search |
+| GET | `/api/v1/products/{id}` | USER, ADMIN | Get single product with its items |
+| POST | `/api/v1/products` | ADMIN | Create new product |
+| PUT | `/api/v1/products/{id}` | ADMIN | Update product name |
+| DELETE | `/api/v1/products/{id}` | ADMIN | Delete product |
+| GET | `/api/v1/products/{id}/items` | USER, ADMIN | Get items for a product |
+| POST | `/api/v1/products/{id}/items` | ADMIN | Add item to a product |
+| DELETE | `/api/v1/products/{id}/items/{itemId}` | ADMIN | Delete item from a product |
 
 ---
 
 ## How to Run Locally
 
-### Prerequisites
-- Java 17 or higher
+### 1. Prerequisites
+- Java 17
 - MySQL running on port 3306
 
-### Steps
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/umeshsawant9823/product-management-api.git
-   cd product-management-api
-   ```
+### 2. Configure Database
+In `src/main/resources/application.properties`, check or update your MySQL credentials:
+```properties
+spring.datasource.url=jdbc:mysql://localhost:3306/productmanagementrestapi?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+spring.datasource.username=root
+spring.datasource.password=YOUR_MYSQL_PASSWORD
+```
 
-2. **Configure Database:**
-   Update your database credentials in `src/main/resources/application.properties`:
-   ```properties
-   spring.datasource.url=jdbc:mysql://localhost:3306/productmanagementrestapi?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-   spring.datasource.username=${DB_USERNAME:root}
-   spring.datasource.password=${DB_PASSWORD}
-   ```
+### 3. Run the Application
+Open a terminal in the project folder and run:
 
-3. **Run the application:**
-   ```powershell
-   .\mvnw spring-boot:run
-   ```
+```powershell
+.\mvnw clean spring-boot:run
+```
 
-4. The server will start at `http://localhost:8080`.
+The application will start at: `http://localhost:8080`
 
 ---
 
-## How to Run with Docker
+## How to Run with Docker Compose
 
-You can run both MySQL and the Spring Boot application together using Docker Compose:
+If you have Docker installed, you can run the app and MySQL together:
 
 ```bash
-# Build and start containers
+# Start MySQL and Spring Boot app
 docker-compose up --build
 
 # Stop containers
@@ -154,69 +148,71 @@ docker-compose down
 
 ---
 
-## Testing
+## Running Tests
 
-The project has 14 automated tests covering services, controllers, and integration flows using JUnit 5, Mockito, and an in-memory H2 database:
+The project includes unit tests and integration tests with an in-memory H2 database.
 
+To run all tests:
 ```powershell
 .\mvnw test
 ```
 
-- **Unit tests (`ProductServiceTest`):** Tests business logic with Mockito mocks.
-- **Controller tests (`ProductControllerTest`):** Tests HTTP status codes, validation, and role checks.
-- **Integration tests (`AuthIntegrationTest`, `ProductIntegrationTest`):** Tests complete authentication, token rotation, and product lifecycle with H2.
+- `ProductServiceTest`: Unit tests using Mockito.
+- `ProductControllerTest`: Web layer tests using MockMvc.
+- `AuthIntegrationTest`: Tests register, login, and refresh token rotation with H2.
+- `ProductIntegrationTest`: Tests full product and item CRUD flow with H2.
 
 ---
 
-## Swagger Documentation
+## Swagger UI
 
-You can test all endpoints in your browser using Swagger UI:
+You can test the APIs in your browser:
 
-👉 **[http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)**
+Link: [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
 
 ### How to use Swagger with JWT:
-1. Call `POST /api/v1/auth/login` with `admin` / `admin123`.
+1. Run `POST /api/v1/auth/login` using `admin` / `admin123`.
 2. Copy the `accessToken` from the response.
-3. Click the green **Authorize** button at the top right.
+3. Click the **Authorize** button at the top right of the Swagger page.
 4. Enter the token and click **Authorize**.
-5. You can now test protected endpoints directly from Swagger.
+5. You can now execute the protected endpoints directly.
 
 ---
 
 ## Sample cURL Requests
 
-### 1. Login
+### 1. Login as Admin
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "admin123"}'
 ```
 
-### 2. Create Product (ADMIN only)
+### 2. Create Product (Requires Admin Token)
 ```bash
 curl -X POST http://localhost:8080/api/v1/products \
-  -H "Authorization: Bearer <YOUR_ACCESS_TOKEN>" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"productName": "Wireless Mouse"}'
+  -d '{"productName": "Wireless Keyboard"}'
 ```
 
-### 3. Get Products (Paginated)
+### 3. Get Products (with Pagination)
 ```bash
-curl -X GET "http://localhost:8080/api/v1/products?page=0&size=5&sortBy=productName&sortDir=asc" \
-  -H "Authorization: Bearer <YOUR_ACCESS_TOKEN>"
+curl -X GET "http://localhost:8080/api/v1/products?page=0&size=10&sortBy=productName&sortDir=asc" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
 ### 4. Add Item to Product
 ```bash
 curl -X POST http://localhost:8080/api/v1/products/1/items \
-  -H "Authorization: Bearer <YOUR_ACCESS_TOKEN>" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"quantity": 10}'
+  -d '{"quantity": 20}'
 ```
 
-### 5. Refresh Token Rotation
+### 5. Refresh Token
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/refresh-token \
   -H "Content-Type: application/json" \
-  -d '{"refreshToken": "<YOUR_REFRESH_TOKEN>"}'
+  -d '{"refreshToken": "<REFRESH_TOKEN>"}'
 ```
