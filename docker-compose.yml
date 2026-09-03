@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  mysqldb:
+    image: mysql:8.0
+    container_name: product_management_mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: productmanagementrestapi
+      MYSQL_ROOT_PASSWORD: umesh
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pumesh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - product_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: product_management_app
+    restart: on-failure
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/productmanagementrestapi?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: umesh
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+    networks:
+      - product_network
+
+volumes:
+  mysql_data:
+
+networks:
+  product_network:
+    driver: bridge
